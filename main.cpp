@@ -22,6 +22,10 @@ const vector<const char*> validationLayers = {
 	"VK_LAYER_LUNARG_standard_validation"
 };
 
+const vector<const char*> deviceExtensions = {
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
 struct QueueFamilyIndices {
 	int graphicsFamily = -1;
 	int presentFamily = -1;
@@ -291,7 +295,13 @@ private:
 
 		QueueFamilyIndices indices = findQueueFamily(device);
 
-		return indices.isComplete();
+		bool extensionsSupported = checkDeviceExtensionSupport(device);
+
+		return indices.isComplete() && extensionsSupported;
+	}
+
+	bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
+		return true;
 	}
 
 	bool checkValidationLayerSupport() {
