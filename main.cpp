@@ -21,6 +21,14 @@ const vector<const char*> validationLayers = {
 	"VK_LAYER_LUNARG_standard_validation"
 };
 
+struct QueueFamilyIndices {
+	int graphicsFamily = -1;
+
+	bool isComplete() {
+		return graphicsFamily > -1;
+	}
+};
+
 #ifdef NDEBUG
 	const bool enableValidationLayers = false;
 #else
@@ -75,6 +83,12 @@ private:
 	//The physical device vulkan works with
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
+	//Vulkan logical device
+	VkDevice logicDevice;
+
+	//Handle to the graphics queue
+	VkQueue graphicsQueue;
+
 	void initWindow() {
 		//Init GLFW lib.
 		glfwInit();
@@ -93,6 +107,7 @@ private:
 		createInstance();
 		setupDebugCallback();
 		pickPhysicalDevice();
+		createLogicalDevice();
 	}
 
 	void createInstance() {
@@ -177,15 +192,76 @@ private:
 			throw runtime_error("Failed to find a suitable GPU!");
 		}
 	}
+
+	void createLogicalDevice() {
+		QueueFamilyIndices queueFamily = findQueueFamily(physicalDevice);
+		float queuePriority = 1.f;
+
+		VkDeviceQueueCreateInfo queueCreateInfo = {};
+		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueCreateInfo.queueCount = 1;
+		queueCreateInfo.pQueuePriorities = &queuePriority;
+
+		VkPhysicalDeviceFeatures deviceFeatures = {};
+
+		VkDeviceCreateInfo createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		createInfo.pQueueCreateInfos = &queueCreateInfo;
+		createInfo.queueCreateInfoCount = 1;
+		
+		createInfo.pEnabledFeatures = &deviceFeatures;
+
+		createInfo.enabledExtensionCount = 0;
+		if (enableValidationLayers) {
+			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+			createInfo.ppEnabledLayerNames = validationLayers.data();
+		}
+		else {
+			createInfo.enabledLayerCount = 0;
+		}
+
+		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicDevice) != VK_SUCCESS) {
+			runtime_error("Error creating logical device!");
+		}
+
+		vkGetDeviceQueue(logicDevice, queueFamily.graphicsFamily, 0, &graphicsQueue);
+	}
+
+	QueueFamilyIndices findQueueFamily(VkPhysicalDevice device) {
+		QueueFamilyIndices indices;
+		uint32_t queueFamilyCount;
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+		vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+		int i = 0;
+		for (const VkQueueFamilyProperties& queueFamily : queueFamilies) {
+			if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+				indices.graphicsFamily = i;
+			}
+
+			if (indices.isComplete()) {
+				break;
+			}
+
+			i++;
+		}
+
+		return indices;
+	}
 	
 	bool isDeviceSuitable(VkPhysicalDevice device) {
-		VkPhysicalDeviceProperties deviceProperties;
+		/*VkPhysicalDeviceProperties deviceProperties;
 		VkPhysicalDeviceFeatures deviceFeatures;
 		vkGetPhysicalDeviceProperties(device, &deviceProperties);
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
 		return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-			deviceFeatures.geometryShader;
+			deviceFeatures.geometryShader;*/
+
+		QueueFamilyIndices indices = findQueueFamily(device);
+
+		return indices.isComplete();
 	}
 
 	bool checkValidationLayerSupport() {
@@ -252,6 +328,7 @@ private:
 	}
 
 	void cleanup() {
+		vkDestroyDevice(logicDevice, nullptr);
 		if (enableValidationLayers) {
 			DestroyDebugReportCallbackEXT(instance, callback, nullptr);
 		}
