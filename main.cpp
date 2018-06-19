@@ -137,6 +137,11 @@ private:
 	//Framebuffers for swapchain
 	vector<VkFramebuffer> swapChainFrameBuffers;
 
+	//Vulkan command pool
+	VkCommandPool commandPool;
+
+	vector<VkCommandBuffer> commandBuffers;
+
 	void initWindow() {
 		//Init GLFW lib.
 		glfwInit();
@@ -162,6 +167,7 @@ private:
 		createRenderPass();
 		createGraphicsPipeline();
 		createFrameBuffers();
+		createCommandPool();
 	}
 
 	void createInstance() {
@@ -560,6 +566,65 @@ private:
 		}
 	}
 
+	void createCommandPool() {
+		QueueFamilyIndices indices = findQueueFamily(physicalDevice);
+
+		VkCommandPoolCreateInfo commandPoolCreateInfo = {};
+		commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		commandPoolCreateInfo.queueFamilyIndex = indices.graphicsFamily;
+		commandPoolCreateInfo.flags = 0;
+
+		if (vkCreateCommandPool(logicDevice, &commandPoolCreateInfo, nullptr, &commandPool) != VK_SUCCESS) {
+			throw runtime_error("Failed to create command pool");
+		}
+	}
+
+	void createCommandBuffers() {
+		commandBuffers.resize(swapChainFrameBuffers.size());
+
+		VkCommandBufferAllocateInfo allocateInfo = {};
+		allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocateInfo.commandPool = commandPool;
+		allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocateInfo.commandBufferCount = (uint32_t)commandBuffers.size();
+
+		if (vkAllocateCommandBuffers(logicDevice, &allocateInfo, commandBuffers.data()) != VK_SUCCESS) {
+			throw runtime_error("Failed to create commandbuffers!");
+		}
+
+		for (size_t i = 0; i < commandBuffers.size(); i++) {
+			VkCommandBufferBeginInfo beginInfo = {};
+			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+
+			if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) {
+				throw runtime_error("Failed to begin recording command buffer!");
+			}
+
+			VkClearValue clearColor = { 0.f, 0.f, 0.f, 1.f };
+			VkRenderPassBeginInfo renderPassBeginInfo = {};
+			renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+			renderPassBeginInfo.renderPass = renderPass;
+			renderPassBeginInfo.framebuffer = swapChainFrameBuffers[i];
+			renderPassBeginInfo.renderArea.offset = { 0, 0 };
+			renderPassBeginInfo.renderArea.extent = swapChainExtent;
+			renderPassBeginInfo.clearValueCount = 1;
+			renderPassBeginInfo.pClearValues = &clearColor;
+
+			vkCmdBeginRenderPass(commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+			vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+
+			vkCmdEndRenderPass(commandBuffers[i]);
+
+			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
+				throw runtime_error("Failed to record command buffer!");
+			}
+		}
+	}
+
 	VkShaderModule createShaderModule(const vector<char> &code) {
 		VkShaderModuleCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -791,6 +856,7 @@ private:
 	}
 
 	void cleanup() {
+		vkDestroyCommandPool(logicDevice, commandPool, nullptr);
 		for (VkFramebuffer framebuffers : swapChainFrameBuffers) {
 			vkDestroyFramebuffer(logicDevice, framebuffers, nullptr);
 		}
