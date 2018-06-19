@@ -134,6 +134,9 @@ private:
 	//Graphics pipeline
 	VkPipeline graphicsPipeline;
 
+	//Framebuffers for swapchain
+	vector<VkFramebuffer> swapChainFrameBuffers;
+
 	void initWindow() {
 		//Init GLFW lib.
 		glfwInit();
@@ -158,6 +161,7 @@ private:
 		createImageViews();
 		createRenderPass();
 		createGraphicsPipeline();
+		createFrameBuffers();
 	}
 
 	void createInstance() {
@@ -533,6 +537,29 @@ private:
 		vkDestroyShaderModule(logicDevice, fragShaderModule, nullptr);
 	}
 
+	void createFrameBuffers() {
+		swapChainFrameBuffers.resize(swapChainImageViews.size());
+
+		for (size_t i = 0; i < swapChainImageViews.size(); i++) {
+			VkImageView attachments[] = {
+				swapChainImageViews[i]
+			};
+
+			VkFramebufferCreateInfo framebufferCreateInfo = {};
+			framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			framebufferCreateInfo.renderPass = renderPass;
+			framebufferCreateInfo.attachmentCount = 1;
+			framebufferCreateInfo.pAttachments = attachments;
+			framebufferCreateInfo.width = swapChainExtent.width;
+			framebufferCreateInfo.height = swapChainExtent.height;
+			framebufferCreateInfo.layers = 1;
+
+			if (vkCreateFramebuffer(logicDevice, &framebufferCreateInfo, nullptr, &swapChainFrameBuffers[i]) != VK_SUCCESS) {
+				throw runtime_error("Failed to create framebuffer!");
+			}
+		}
+	}
+
 	VkShaderModule createShaderModule(const vector<char> &code) {
 		VkShaderModuleCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -764,6 +791,10 @@ private:
 	}
 
 	void cleanup() {
+		for (VkFramebuffer framebuffers : swapChainFrameBuffers) {
+			vkDestroyFramebuffer(logicDevice, framebuffers, nullptr);
+		}
+
 		vkDestroyPipeline(logicDevice, graphicsPipeline, nullptr);
 		vkDestroyPipelineLayout(logicDevice, pipelineLayout, nullptr);
 		vkDestroyRenderPass(logicDevice, renderPass, nullptr);
