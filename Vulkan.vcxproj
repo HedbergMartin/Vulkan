@@ -81,6 +81,7 @@
     <Link>
       <AdditionalLibraryDirectories>C:\Users\Dennis\Documents\Visual Studio 2017\Libraries\glfw-3.2.1.bin.WIN32\lib-vc2015;C:\VulkanSDK\1.1.73.0\Lib32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -106,6 +107,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>C:\Users\Dennis\Documents\Visual Studio 2017\Libraries\glfw-3.2.1.bin.WIN32\lib-vc2015;C:\VulkanSDK\1.1.73.0\Lib32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -124,6 +126,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Vulkan.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
