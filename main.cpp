@@ -76,9 +76,14 @@ struct Vertex {
 };
 
 const std::vector<Vertex> vertices = {
-	{{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-	{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-	{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+	{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+	{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+	{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+};
+
+const std::vector<uint16_t> indices = {
+	0, 1, 2, 2, 3, 0
 };
 
 struct SwapChainSupportDetails {
@@ -192,6 +197,12 @@ private:
 	// Vertex buffer allocated memory
 	VkDeviceMemory vertexBufferMemory;
 
+	// Index buffer
+	VkBuffer indexBuffer;
+
+	// Index buffer allocated memory
+	VkDeviceMemory indexBufferMemory;
+
 	//Semaphores used to syncronize commandcalls accross operations
 	vector<VkSemaphore> imageAvailableSemaphores;
 	vector<VkSemaphore> renderFinishedSemaphores;
@@ -232,6 +243,7 @@ private:
 		createFrameBuffers();
 		createCommandPool();
 		createVertexBuffer();
+		createIndexBuffer();
 		createCommandBuffers();
 		createSemaphores();
 	}
@@ -719,6 +731,26 @@ private:
 		vkFreeMemory(logicDevice, stagingBufferMemory, nullptr);
 	}
 
+	void createIndexBuffer() {
+		VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+		void* data;
+		vkMapMemory(logicDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+		//To remove, slow
+		memcpy(data, indices.data(), (size_t)bufferSize);
+		vkUnmapMemory(logicDevice, stagingBufferMemory);
+
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+		copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+		vkDestroyBuffer(logicDevice, stagingBuffer, nullptr);
+		vkFreeMemory(logicDevice, stagingBufferMemory, nullptr);
+	}
+
 	//TODO Use independent commandpool for meme transferes. Use VK_COMMAND_POOL_CREATE_TRANSIENT_BIT.
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer destBuffer, VkDeviceSize size) {
 		VkCommandBufferAllocateInfo allocInfo = {};
@@ -834,7 +866,11 @@ private:
 			VkDeviceSize offsets[] = { 0 };
 			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-			vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+			//NOTE If upgrading to handle bigger meshes, increase VK_INDEX_TYPE_UINT16 to UINT32
+			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+			//vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+			vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 			vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -1168,6 +1204,9 @@ private:
 	void cleanup() {
 		cleanupSwapChain();
 
+		vkDestroyBuffer(logicDevice, indexBuffer, nullptr);
+		vkFreeMemory(logicDevice, indexBufferMemory, nullptr);
+
 		vkDestroyBuffer(logicDevice, vertexBuffer, nullptr);
 		vkFreeMemory(logicDevice, vertexBufferMemory, nullptr);
 
@@ -1195,7 +1234,7 @@ private:
 
 int main() {
 
-	//Next, index buffer
+	//Next, uniform buffer
 	Application app;
 
 	try {
